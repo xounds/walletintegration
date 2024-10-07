@@ -4,8 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { BatchPaymentClient } from '../../components/pay-creators/pay-creators';
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
-import { firebaseConfig } from '@/app/pay-creators/firebase-config';
+import { firebaseConfig  } from './firebase-config';
 
+// Firebase configuration
+firebaseConfig;
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

@@ -1,19 +1,23 @@
 'use client';
 
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import {
   Connection,
-  LAMPORTS_PER_SOL,
   PublicKey,
-  SystemProgram,
   TransactionMessage,
   TransactionSignature,
   VersionedTransaction,
+  LAMPORTS_PER_SOL,
+  SystemProgram,
 } from '@solana/web3.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useTransactionToast } from '../ui/ui-layout';
+
+// USDC token mint address
+export const USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
+export const USDC_DECIMALS = 6;
 
 export function useGetBalance({ address }: { address: PublicKey }) {
   const { connection } = useConnection();
@@ -24,38 +28,25 @@ export function useGetBalance({ address }: { address: PublicKey }) {
   });
 }
 
-export function useGetSignatures({ address }: { address: PublicKey }) {
+export function useGetUsdcBalance({ address }: { address: PublicKey }) {
   const { connection } = useConnection();
 
   return useQuery({
-    queryKey: ['get-signatures', { endpoint: connection.rpcEndpoint, address }],
-    queryFn: () => connection.getConfirmedSignaturesForAddress2(address),
-  });
-}
-
-export function useGetTokenAccounts({ address }: { address: PublicKey }) {
-  const { connection } = useConnection();
-
-  return useQuery({
-    queryKey: [
-      'get-token-accounts',
-      { endpoint: connection.rpcEndpoint, address },
-    ],
+    queryKey: ['get-usdc-balance', { endpoint: connection.rpcEndpoint, address }],
     queryFn: async () => {
-      const [tokenAccounts, token2022Accounts] = await Promise.all([
-        connection.getParsedTokenAccountsByOwner(address, {
-          programId: TOKEN_PROGRAM_ID,
-        }),
-        connection.getParsedTokenAccountsByOwner(address, {
-          programId: TOKEN_2022_PROGRAM_ID,
-        }),
-      ]);
-      return [...tokenAccounts.value, ...token2022Accounts.value];
+      const tokenAccount = await getAssociatedTokenAddress(USDC_MINT, address);
+      try {
+        const balance = await connection.getTokenAccountBalance(tokenAccount);
+        return Number(balance.value.amount);
+      } catch (error) {
+        console.error("Error fetching USDC balance:", error);
+        return 0; // Return 0 if there's an error (e.g., if the token account doesn't exist)
+      }
     },
   });
 }
 
-export function useTransferSol({ address }: { address: PublicKey }) {
+export function useTransferUsdc({ address }: { address: PublicKey }) {
   const { connection } = useConnection();
   const transactionToast = useTransactionToast();
   const wallet = useWallet();
@@ -63,13 +54,13 @@ export function useTransferSol({ address }: { address: PublicKey }) {
 
   return useMutation({
     mutationKey: [
-      'transfer-sol',
+      'transfer-usdc',
       { endpoint: connection.rpcEndpoint, address },
     ],
     mutationFn: async (input: { destination: PublicKey; amount: number }) => {
       let signature: TransactionSignature = '';
       try {
-        const { transaction, latestBlockhash } = await createTransaction({
+        const { transaction, latestBlockhash } = await createUsdcTransaction({
           publicKey: address,
           destination: input.destination,
           amount: input.amount,
@@ -79,7 +70,7 @@ export function useTransferSol({ address }: { address: PublicKey }) {
         // Send transaction and await for signature
         signature = await wallet.sendTransaction(transaction, connection);
 
-        // Send transaction and await for signature
+        // Confirm transaction
         await connection.confirmTransaction(
           { signature, ...latestBlockhash },
           'confirmed'
@@ -89,8 +80,7 @@ export function useTransferSol({ address }: { address: PublicKey }) {
         return signature;
       } catch (error: unknown) {
         console.log('error', `Transaction failed! ${error}`, signature);
-
-        return;
+        throw error;
       }
     },
     onSuccess: (signature) => {
@@ -100,7 +90,7 @@ export function useTransferSol({ address }: { address: PublicKey }) {
       return Promise.all([
         client.invalidateQueries({
           queryKey: [
-            'get-balance',
+            'get-usdc-balance',
             { endpoint: connection.rpcEndpoint, address },
           ],
         }),
@@ -157,7 +147,7 @@ export function useRequestAirdrop({ address }: { address: PublicKey }) {
   });
 }
 
-async function createTransaction({
+async function createUsdcTransaction({
   publicKey,
   destination,
   amount,
@@ -171,26 +161,43 @@ async function createTransaction({
   transaction: VersionedTransaction;
   latestBlockhash: { blockhash: string; lastValidBlockHeight: number };
 }> {
-  // Get the latest blockhash to use in our transaction
   const latestBlockhash = await connection.getLatestBlockhash();
 
-  // Create instructions to send, in this case a simple transfer
-  const instructions = [
-    SystemProgram.transfer({
-      fromPubkey: publicKey,
-      toPubkey: destination,
-      lamports: amount * LAMPORTS_PER_SOL,
-    }),
-  ];
+  const fromTokenAccount = await getAssociatedTokenAddress(USDC_MINT, publicKey);
+  const toTokenAccount = await getAssociatedTokenAddress(USDC_MINT, destination);
 
-  // Create a new TransactionMessage with version and compile it to legacy
+  const instructions = [];
+
+  // Check if the destination token account exists
+  const toTokenAccountInfo = await connection.getAccountInfo(toTokenAccount);
+  if (!toTokenAccountInfo) {
+    instructions.push(
+      createAssociatedTokenAccountInstruction(
+        publicKey,
+        toTokenAccount,
+        destination,
+        USDC_MINT
+      )
+    );
+  }
+
+  instructions.push(
+    createTransferInstruction(
+      fromTokenAccount,
+      toTokenAccount,
+      publicKey,
+      amount * 10**USDC_DECIMALS,
+      [],
+      TOKEN_PROGRAM_ID
+    )
+  );
+
   const messageLegacy = new TransactionMessage({
     payerKey: publicKey,
     recentBlockhash: latestBlockhash.blockhash,
     instructions,
   }).compileToLegacyMessage();
 
-  // Create a new VersionedTransaction which supports legacy and v0
   const transaction = new VersionedTransaction(messageLegacy);
 
   return {

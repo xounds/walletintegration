@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "182073978282",
+    "project_id": "xounds-mvp-12499",
+    "storage_bucket": "xounds-mvp-12499.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:182073978282:android:1968ece2e6f5428b8ccfd3",
+        "android_client_info": {
+          "package_name": "xounds.mvp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "182073978282-uvjvjc5b4nll09gqjrnpv7nsjcrqtb72.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "xounds.mvp",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
+          "client_id": "182073978282-d0kfcmcquu4ck1c09d1mnqodhuc431h6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6zoQYxpcjevXTQvAikz2nudQ3eMYGsDQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "182073978282-d0kfcmcquu4ck1c09d1mnqodhuc431h6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "182073978282-io3nkq58a09g2pg52v4hjb5dl1ruignf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "xounds.mvp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
